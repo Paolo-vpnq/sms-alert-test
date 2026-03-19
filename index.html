@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#131E40">
+    <title>NNE SiteHSE Emergency Alert</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+    <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #070b1e;
+            --bg-card: #131E40;
+            --bg-input: #0c1230;
+            --accent: #E32B50;
+            --accent-hover: #ff3d64;
+            --accent-glow: rgba(227, 43, 80, 0.4);
+            --text-primary: #e8e9f0;
+            --text-secondary: #8a8fb0;
+            --border: #263060;
+            --copper: #7BBE97;
+            --sand: #D9D0BE;
+            --radius: 16px;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: "Albert Sans", Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100dvh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── ACCESS GATE ── */
+        #accessGate {
+            position: fixed; inset: 0; z-index: 99999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: var(--bg-primary);
+            padding: 24px;
+        }
+        #accessGate.hidden { display: none; }
+        .gate-logo { width: 120px; margin-bottom: 12px; filter: brightness(0) invert(1); }
+        .gate-title { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; text-align: center; }
+        .gate-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 32px; text-align: center; }
+        .gate-input-wrap {
+            position: relative; width: 100%; max-width: 320px; margin-bottom: 16px;
+        }
+        .gate-input-wrap input {
+            width: 100%; padding: 14px 48px 14px 16px;
+            background: var(--bg-input); border: 1px solid var(--border); border-radius: 12px;
+            color: var(--text-primary); font-size: 16px; font-family: inherit; outline: none;
+        }
+        .gate-input-wrap input:focus { border-color: var(--accent); }
+        .gate-toggle-pw {
+            position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 22px;
+        }
+        .gate-btn {
+            width: 100%; max-width: 320px; padding: 14px;
+            background: var(--accent); border: none; border-radius: 12px;
+            color: #fff; font-size: 16px; font-weight: 700; font-family: inherit;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .gate-btn:active { background: var(--accent-hover); }
+        .gate-error { color: var(--accent); font-size: 13px; margin-top: 12px; display: none; }
+
+        /* ── MAIN APP ── */
+        #app { display: none; flex-direction: column; min-height: 100dvh; padding-top: var(--safe-top); }
+        #app.active { display: flex; }
+
+        .header {
+            display: flex; align-items: center; gap: 12px;
+            padding: 16px 20px 12px; background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+        .header-logo { height: 28px; filter: brightness(0) invert(1); }
+        .header-divider { width: 1px; height: 28px; background: var(--border); }
+        .header-title { font-size: 15px; font-weight: 700; line-height: 1.2; }
+        .header-title span { color: var(--accent); }
+        .header-settings {
+            margin-left: auto; background: none; border: none;
+            color: var(--text-secondary); cursor: pointer; font-size: 24px; padding: 4px;
+        }
+
+        .content { flex: 1; padding: 20px; overflow-y: auto; padding-bottom: calc(20px + var(--safe-bottom)); }
+
+        .section-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+
+        /* Alert type grid */
+        .alert-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+        .alert-type {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 6px; padding: 16px 8px;
+            background: var(--bg-card); border: 2px solid var(--border); border-radius: var(--radius);
+            cursor: pointer; transition: all 0.2s; user-select: none;
+        }
+        .alert-type:active { transform: scale(0.97); }
+        .alert-type.selected { border-color: var(--accent); background: rgba(227, 43, 80, 0.1); }
+        .alert-type .icon { font-size: 32px; color: var(--text-secondary); transition: color 0.2s; }
+        .alert-type.selected .icon { color: var(--accent); }
+        .alert-type .label { font-size: 13px; font-weight: 600; text-align: center; color: var(--text-secondary); transition: color 0.2s; }
+        .alert-type.selected .label { color: var(--text-primary); }
+
+        /* Description */
+        .desc-field {
+            width: 100%; min-height: 80px; padding: 14px;
+            background: var(--bg-input); border: 1px solid var(--border); border-radius: 12px;
+            color: var(--text-primary); font-size: 15px; font-family: inherit;
+            resize: vertical; outline: none; margin-bottom: 24px;
+        }
+        .desc-field:focus { border-color: var(--accent); }
+        .desc-field::placeholder { color: var(--text-secondary); }
+
+        /* Big alert button */
+        .alert-btn-wrap { display: flex; justify-content: center; margin-bottom: 16px; }
+        .alert-btn {
+            width: 100%; max-width: 400px; padding: 20px;
+            background: var(--accent); border: none; border-radius: var(--radius);
+            color: #fff; font-size: 20px; font-weight: 900; font-family: inherit;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+            box-shadow: 0 0 30px var(--accent-glow);
+            transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .alert-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+        .alert-btn:not(:disabled):active { transform: scale(0.97); background: var(--accent-hover); }
+        .alert-btn .material-icons-round { font-size: 28px; }
+
+        /* Countdown overlay */
+        #countdown {
+            position: fixed; inset: 0; z-index: 9999;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(7, 11, 30, 0.95);
+        }
+        #countdown.active { display: flex; }
+        .countdown-number { font-size: 120px; font-weight: 900; color: var(--accent); line-height: 1; }
+        .countdown-label { font-size: 16px; color: var(--text-secondary); margin-top: 8px; }
+        .countdown-cancel {
+            margin-top: 32px; padding: 14px 48px;
+            background: none; border: 2px solid var(--border); border-radius: 12px;
+            color: var(--text-primary); font-size: 16px; font-weight: 600; font-family: inherit;
+            cursor: pointer;
+        }
+        .countdown-cancel:active { background: rgba(255,255,255,0.05); }
+
+        /* Success overlay */
+        #success {
+            position: fixed; inset: 0; z-index: 9999;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(7, 11, 30, 0.95); padding: 24px;
+        }
+        #success.active { display: flex; }
+        .success-icon { font-size: 80px; color: var(--copper); margin-bottom: 16px; }
+        .success-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+        .success-msg { font-size: 14px; color: var(--text-secondary); text-align: center; max-width: 300px; margin-bottom: 32px; }
+        .success-btn {
+            padding: 14px 48px; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; color: var(--text-primary); font-size: 15px; font-weight: 600;
+            font-family: inherit; cursor: pointer;
+        }
+
+        /* Error overlay */
+        #errorOverlay {
+            position: fixed; inset: 0; z-index: 9999;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(7, 11, 30, 0.95); padding: 24px;
+        }
+        #errorOverlay.active { display: flex; }
+        .error-icon { font-size: 80px; color: var(--accent); margin-bottom: 16px; }
+        .error-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+        .error-msg { font-size: 14px; color: var(--text-secondary); text-align: center; max-width: 300px; margin-bottom: 32px; }
+
+        /* Settings panel */
+        #settings {
+            position: fixed; inset: 0; z-index: 9998;
+            display: none; flex-direction: column;
+            background: var(--bg-primary);
+        }
+        #settings.active { display: flex; }
+        .settings-header {
+            display: flex; align-items: center; gap: 12px;
+            padding: 16px 20px; background: var(--bg-card); border-bottom: 1px solid var(--border);
+        }
+        .settings-back { background: none; border: none; color: var(--text-primary); cursor: pointer; font-size: 24px; }
+        .settings-title { font-size: 17px; font-weight: 700; }
+        .settings-body { padding: 20px; flex: 1; overflow-y: auto; }
+        .setting-group { margin-bottom: 24px; }
+        .setting-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+        .setting-input {
+            width: 100%; padding: 12px 14px;
+            background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px;
+            color: var(--text-primary); font-size: 14px; font-family: inherit; outline: none;
+        }
+        .setting-input:focus { border-color: var(--accent); }
+        .setting-hint { font-size: 11px; color: var(--text-secondary); margin-top: 6px; }
+        .settings-save {
+            margin: 0 20px 20px; padding: 14px;
+            background: var(--accent); border: none; border-radius: 12px;
+            color: #fff; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer;
+        }
+        .settings-save:active { background: var(--accent-hover); }
+        .settings-reset {
+            display: block; margin: 0 auto 20px; padding: 10px 24px;
+            background: none; border: 1px solid var(--border); border-radius: 10px;
+            color: var(--text-secondary); font-size: 13px; font-family: inherit; cursor: pointer;
+        }
+    </style>
+    <script>
+        // Access gate — SHA-256 hash of the password
+        // Default: "SiteHSE2026" → update this hash when you set your real password
+        var ACCESS_HASH = '6b97ed42b6874e0c977e8e21fe4b2d1df94a39e51c88cf1e654de889e3dfe1db';
+    </script>
+</head>
+<body>
+
+    <!-- ── ACCESS GATE ── -->
+    <div id="accessGate">
+        <img src="assets/nne-logo-white.png" alt="NNE" class="gate-logo">
+        <div class="gate-title">SiteHSE Emergency Alert</div>
+        <div class="gate-subtitle">Authorized personnel only</div>
+        <div class="gate-input-wrap">
+            <input type="password" id="gatePassword" placeholder="Enter access code" autocomplete="off">
+            <button class="gate-toggle-pw material-icons-round" onclick="toggleGatePw()">visibility_off</button>
+        </div>
+        <button class="gate-btn" onclick="checkAccess()">Enter</button>
+        <div class="gate-error" id="gateError">Incorrect access code</div>
+    </div>
+
+    <!-- ── MAIN APP ── -->
+    <div id="app">
+        <div class="header">
+            <img src="assets/nne-logo-white.png" alt="NNE" class="header-logo">
+            <div class="header-divider"></div>
+            <div class="header-title">SiteHSE<br><span>Emergency Alert</span></div>
+            <button class="header-settings material-icons-round" onclick="openSettings()">settings</button>
+        </div>
+
+        <div class="content">
+            <div class="section-label">Select alert type</div>
+            <div class="alert-grid">
+                <div class="alert-type" data-type="Fire" onclick="selectType(this)">
+                    <span class="material-icons-round icon">local_fire_department</span>
+                    <span class="label">Fire</span>
+                </div>
+                <div class="alert-type" data-type="Evacuation" onclick="selectType(this)">
+                    <span class="material-icons-round icon">directions_run</span>
+                    <span class="label">Evacuation</span>
+                </div>
+                <div class="alert-type" data-type="Hazardous Spill" onclick="selectType(this)">
+                    <span class="material-icons-round icon">science</span>
+                    <span class="label">Hazardous Spill</span>
+                </div>
+                <div class="alert-type" data-type="Medical Emergency" onclick="selectType(this)">
+                    <span class="material-icons-round icon">medical_services</span>
+                    <span class="label">Medical Emergency</span>
+                </div>
+                <div class="alert-type" data-type="Security Threat" onclick="selectType(this)">
+                    <span class="material-icons-round icon">shield</span>
+                    <span class="label">Security Threat</span>
+                </div>
+                <div class="alert-type" data-type="Other" onclick="selectType(this)">
+                    <span class="material-icons-round icon">warning</span>
+                    <span class="label">Other</span>
+                </div>
+            </div>
+
+            <div class="section-label">Quick description (optional)</div>
+            <textarea class="desc-field" id="description" placeholder="e.g. Fire in Building 3, floor 2 — all personnel evacuate via north exit" maxlength="300"></textarea>
+
+            <div class="alert-btn-wrap">
+                <button class="alert-btn" id="alertBtn" disabled onclick="startCountdown()">
+                    <span class="material-icons-round">campaign</span>
+                    Alert Everybody
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── COUNTDOWN OVERLAY ── -->
+    <div id="countdown">
+        <div class="countdown-number" id="countdownNum">3</div>
+        <div class="countdown-label">Sending alert in...</div>
+        <button class="countdown-cancel" onclick="cancelCountdown()">Cancel</button>
+    </div>
+
+    <!-- ── SUCCESS OVERLAY ── -->
+    <div id="success">
+        <span class="material-icons-round success-icon">check_circle</span>
+        <div class="success-title">Alert Sent</div>
+        <div class="success-msg" id="successMsg">All recipients have been notified via SMS.</div>
+        <button class="success-btn" onclick="resetApp()">Done</button>
+    </div>
+
+    <!-- ── ERROR OVERLAY ── -->
+    <div id="errorOverlay">
+        <span class="material-icons-round error-icon">error</span>
+        <div class="error-title">Failed to Send</div>
+        <div class="error-msg" id="errorMsg">Could not reach the alert service. Check your connection and try again.</div>
+        <button class="success-btn" onclick="closeError()">Try Again</button>
+    </div>
+
+    <!-- ── SETTINGS ── -->
+    <div id="settings">
+        <div class="settings-header">
+            <button class="settings-back material-icons-round" onclick="closeSettings()">arrow_back</button>
+            <div class="settings-title">Settings</div>
+        </div>
+        <div class="settings-body">
+            <div class="setting-group">
+                <div class="setting-label">Power Automate URL</div>
+                <input type="url" class="setting-input" id="settingEndpoint" placeholder="https://prod-xx.westeurope.logic.azure.com/...">
+                <div class="setting-hint">The HTTP POST endpoint from your Power Automate flow.</div>
+            </div>
+            <div class="setting-group">
+                <div class="setting-label">Your Name (Sender)</div>
+                <input type="text" class="setting-input" id="settingSender" placeholder="e.g. John Smith, VP Safety">
+                <div class="setting-hint">Included in the SMS so recipients know who triggered the alert.</div>
+            </div>
+            <div class="setting-group">
+                <div class="setting-label">Site / Location</div>
+                <input type="text" class="setting-input" id="settingSite" placeholder="e.g. Kalundborg Site">
+                <div class="setting-hint">Default site name included in every alert.</div>
+            </div>
+        </div>
+        <button class="settings-save" onclick="saveSettings()">Save Settings</button>
+        <button class="settings-reset" onclick="resetAccess()">Log Out / Reset Access</button>
+    </div>
+
+    <script>
+        // ── CONFIG ──
+        const CONFIG = {
+            ENDPOINT_URL: '',
+            SENDER: '',
+            SITE: ''
+        };
+
+        let selectedType = null;
+        let countdownTimer = null;
+
+        // ── ACCESS GATE ──
+        (function initGate() {
+            if (localStorage.getItem('hse_alert_access') === '1') {
+                document.getElementById('accessGate').classList.add('hidden');
+                document.getElementById('app').classList.add('active');
+            }
+            // Enter key on password field
+            document.getElementById('gatePassword').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') checkAccess();
+            });
+        })();
+
+        async function checkAccess() {
+            const pw = document.getElementById('gatePassword').value;
+            const encoded = new TextEncoder().encode(pw);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', encoded);
+            const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+            if (hashHex === ACCESS_HASH) {
+                localStorage.setItem('hse_alert_access', '1');
+                document.getElementById('accessGate').classList.add('hidden');
+                document.getElementById('app').classList.add('active');
+            } else {
+                const err = document.getElementById('gateError');
+                err.style.display = 'block';
+                document.getElementById('gatePassword').value = '';
+                setTimeout(() => err.style.display = 'none', 3000);
+            }
+        }
+
+        function toggleGatePw() {
+            const inp = document.getElementById('gatePassword');
+            const btn = inp.nextElementSibling;
+            if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'visibility'; }
+            else { inp.type = 'password'; btn.textContent = 'visibility_off'; }
+        }
+
+        function resetAccess() {
+            localStorage.removeItem('hse_alert_access');
+            localStorage.removeItem('hse_alert_endpoint');
+            localStorage.removeItem('hse_alert_sender');
+            localStorage.removeItem('hse_alert_site');
+            location.reload();
+        }
+
+        // ── SETTINGS ──
+        function loadSettings() {
+            CONFIG.ENDPOINT_URL = localStorage.getItem('hse_alert_endpoint') || '';
+            CONFIG.SENDER = localStorage.getItem('hse_alert_sender') || '';
+            CONFIG.SITE = localStorage.getItem('hse_alert_site') || '';
+        }
+        loadSettings();
+
+        function openSettings() {
+            document.getElementById('settingEndpoint').value = CONFIG.ENDPOINT_URL;
+            document.getElementById('settingSender').value = CONFIG.SENDER;
+            document.getElementById('settingSite').value = CONFIG.SITE;
+            document.getElementById('settings').classList.add('active');
+        }
+
+        function closeSettings() {
+            document.getElementById('settings').classList.remove('active');
+        }
+
+        function saveSettings() {
+            const endpoint = document.getElementById('settingEndpoint').value.trim();
+            const sender = document.getElementById('settingSender').value.trim();
+            const site = document.getElementById('settingSite').value.trim();
+
+            localStorage.setItem('hse_alert_endpoint', endpoint);
+            localStorage.setItem('hse_alert_sender', sender);
+            localStorage.setItem('hse_alert_site', site);
+
+            CONFIG.ENDPOINT_URL = endpoint;
+            CONFIG.SENDER = sender;
+            CONFIG.SITE = site;
+
+            closeSettings();
+        }
+
+        // ── ALERT TYPE SELECTION ──
+        function selectType(el) {
+            document.querySelectorAll('.alert-type').forEach(t => t.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedType = el.dataset.type;
+            document.getElementById('alertBtn').disabled = false;
+        }
+
+        // ── COUNTDOWN ──
+        function startCountdown() {
+            if (!selectedType) return;
+            if (!CONFIG.ENDPOINT_URL) {
+                openSettings();
+                return;
+            }
+
+            const overlay = document.getElementById('countdown');
+            const numEl = document.getElementById('countdownNum');
+            let count = 3;
+            numEl.textContent = count;
+            overlay.classList.add('active');
+
+            countdownTimer = setInterval(() => {
+                count--;
+                if (count <= 0) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                    overlay.classList.remove('active');
+                    sendAlert();
+                } else {
+                    numEl.textContent = count;
+                }
+            }, 1000);
+        }
+
+        function cancelCountdown() {
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+            }
+            document.getElementById('countdown').classList.remove('active');
+        }
+
+        // ── SEND ALERT ──
+        async function sendAlert() {
+            const desc = document.getElementById('description').value.trim();
+            const payload = {
+                alertType: selectedType,
+                description: desc || 'No additional details.',
+                sender: CONFIG.SENDER || 'Unknown',
+                site: CONFIG.SITE || 'Unknown Site',
+                timestamp: new Date().toISOString()
+            };
+
+            try {
+                const resp = await fetch(CONFIG.ENDPOINT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (resp.ok || resp.status === 202) {
+                    document.getElementById('successMsg').textContent =
+                        `${selectedType} alert sent. All recipients notified via SMS.`;
+                    document.getElementById('success').classList.add('active');
+                } else {
+                    throw new Error(`HTTP ${resp.status}`);
+                }
+            } catch (err) {
+                document.getElementById('errorMsg').textContent =
+                    `Could not send alert: ${err.message}. Check your connection and Power Automate URL.`;
+                document.getElementById('errorOverlay').classList.add('active');
+            }
+        }
+
+        // ── RESET ──
+        function resetApp() {
+            document.getElementById('success').classList.remove('active');
+            selectedType = null;
+            document.querySelectorAll('.alert-type').forEach(t => t.classList.remove('selected'));
+            document.getElementById('description').value = '';
+            document.getElementById('alertBtn').disabled = true;
+        }
+
+        function closeError() {
+            document.getElementById('errorOverlay').classList.remove('active');
+        }
+
+        // ── SERVICE WORKER ──
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
+    </script>
+</body>
+</html>

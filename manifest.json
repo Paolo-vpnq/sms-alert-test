@@ -1,0 +1,23 @@
+{
+    "name": "NNE SiteHSE Emergency Alert",
+    "short_name": "HSE Alert",
+    "description": "Emergency alert system for NNE SiteHSE personnel",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#070b1e",
+    "theme_color": "#131E40",
+    "start_url": ".",
+    "scope": ".",
+    "icons": [
+        {
+            "src": "assets/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "assets/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
